@@ -1,0 +1,41 @@
+-----------------------------------------------------------------------------
+                               DDL SCRIPTS
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+create or replace database SCD2_DB;
+create or replace schema all_tables;
+-----------------------------------------------------------------------------
+
+CREATE TABLE XX_RATES_SRC
+       (CURR_FROM VARCHAR2(3),
+        CURR_TO VARCHAR2(3),
+        RATE NUMBER,
+        EXTRACT_DATE DATE
+       );
+
+SELECT * FROM XX_RATES_SRC;
+-----------------------------------------------------------------------------
+
+create or replace stream XX_RATES_SRC_STREAM
+on table XX_RATES_SRC
+APPEND_ONLY = TRUE;
+
+DESC STREAM XX_RATES_SRC_STREAM;
+SELECT * FROM XX_RATES_SRC_STREAM;
+-----------------------------------------------------------------------------
+
+create table xx_rates_tgt
+   (  exch_rate_id number,
+      curr_from varchar2(3),
+      curr_to varchar2(3),
+      intg_id varchar2(10),
+      exch_RATE NUMBER,
+      eff_st_date date,
+      eff_end_date date,
+      curr_rec_flg varchar2(1)
+   );
+SELECT * FROM xx_rates_tgt;
+create sequence xx_rates_seq;
+-----------------------------------------------------------------------------
+

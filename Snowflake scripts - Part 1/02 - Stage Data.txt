@@ -1,0 +1,38 @@
+-----------------------------------------------------------------------------
+                       EXTERNAL STAGE AND LOADING DATA
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+CREATE OR REPLACE SCHEMA external_stages;
+
+create or replace STORAGE integration s3_int
+  TYPE = EXTERNAL_STAGE
+  STORAGE_PROVIDER = S3
+  ENABLED = TRUE 
+  STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::988902429462:role/SnowflakeS3access'
+  STORAGE_ALLOWED_LOCATIONS = ('s3://currency-scd2-bucket/');
+
+desc integration s3_int;
+
+CREATE OR REPLACE stage SCD2_DB.external_stages.csv_input
+    URL = 's3://currency-scd2-bucket/'
+    STORAGE_INTEGRATION = s3_int
+    FILE_FORMAT = (type = csv field_delimiter=',' skip_header=0);
+
+LIST @SCD2_DB.external_stages.csv_input;
+-----------------------------------------------------------------------------
+
+select t.$1, t.$2,t.$3,t.$4
+from
+@csv_input t;
+
+COPY INTO SCD2_DB.ALL_TABLES.XX_RATES_SRC
+FROM @SCD2_DB.external_stages.csv_input
+pattern='.*txt'
+VALIDATION_MODE = RETURN_ERRORS;
+
+SELECT EXTRACT_DATE,TO_CHAR(EXTRACT_DATE,'YYYY') YEAR
+FROM SCD2_DB.ALL_TABLES.XX_RATES_SRC;
+
+-- TRUNCATE table SCD2_DB.ALL_TABLES.XX_RATES_SRC;
+-----------------------------------------------------------------------------

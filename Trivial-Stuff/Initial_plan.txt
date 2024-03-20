@@ -1,0 +1,24 @@
+SCD2 implement
+https://open.er-api.com/v6/latest/USD
+
+write lambda function
+ - fetch data from above api
+ - truncate to 2 decimals
+ - upload/or replace in s3
+ - schedule everyday
+
+snowflake
+ - detect using snowpipe
+ - copy job everyday
+ - use streams/tasks
+ - implement scd2
+ - consider >2% difference due to volatility
+
+Introduce failures at AWS and snowflake level
+Also, schedule the load using Airflow -> Lambda + Snowflake load
+
+ - modify xx_rates_src to include date column
+ - create snowpipe to load data from s3 to xx_rates_src
+ - xx_rates_stream captures delta changes - append only stream is sufficient
+ - xx_rates_tgt change merge statements to read from stream and load differences
+

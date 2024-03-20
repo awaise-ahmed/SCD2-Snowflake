@@ -1,0 +1,63 @@
+-----------------------------------------------------------------------------
+                           MISCELLANEOUS TESTING
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+select * from SCD2_DB.ALL_TABLES.XX_RATES_SRC;
+SELECT COUNT(*) FROM XX_RATES_SRC_STREAM;
+
+--truncate table SCD2_DB.ALL_TABLES.xx_rates_src;
+--truncate table SCD2_DB.ALL_TABLES.xx_rates_tgt;
+-- COPY INTO SCD2_DB.ALL_TABLES.XX_RATES_SRC
+-- FROM @SCD2_DB.external_stages.csv_input
+-- pattern='.*txt';
+
+-- call SCD2_INSERT();
+-- call SCD2_UPDATE();
+
+-- EXECUTE TASK SCD2_DB.DATAFLOW.SCD2_INSERT;
+
+select count(*),
+listagg(distinct curr_to,'\',\'') within group (order by curr_to) curr_list
+from SCD2_DB.ALL_TABLES.xx_rates_tgt
+where curr_rec_flg = 'N';
+
+SELECT curr_to,count(*) FROM SCD2_DB.ALL_TABLES.xx_rates_tgt
+where curr_rec_flg = 'Y'
+group by curr_to
+having count(*)>1;
+
+select * from SCD2_DB.ALL_TABLES.xx_rates_tgt
+where curr_to in ('CDF','HNL','JPY','MRU','SBD','SDG','TMT')
+order by curr_to,eff_st_date;
+
+-----------------------------------------------------------------------------
+
+create or replace table xx_test(id int autoincrement start=1 increment=1,
+name varchar(40));
+--truncate table xx_test;
+
+CREATE OR REPLACE TASK xx_test_task
+WAREHOUSE = COMPUTE_WH
+SCHEDULE = 'USING CRON * 13 * * * UTC'
+AS
+insert into xx_test(name) values(to_char(current_timestamp));
+
+alter task XX_TEST_TASK suspend;
+
+ALTER SESSION SET TIMEZONE = 'UTC';
+select current_timestamp;
+select * from xx_test;
+
+show tasks;
+SELECT name,scheduled_time,completed_time,state
+FROM snowflake.account_usage.task_history
+order by scheduled_time desc;
+
+select * FROM snowflake.account_usage.task_history
+where name = 'XX_TEST_TASK'
+order by scheduled_time desc;
+
+select to_char(current_timestamp);
+
+-----------------------------------------------------------------------------

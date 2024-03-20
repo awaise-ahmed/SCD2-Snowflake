@@ -1,0 +1,141 @@
+--DROP TABLE xx_rates_src;
+--DROP TABLE xx_rates_tgt;
+--------------------------------------------------
+create table xx_rates_src
+(curr_from varchar2(3),
+curr_to varchar2(3),
+RATE NUMBER
+);
+
+create table xx_rates_tgt
+(exch_rate_id number,
+curr_from varchar2(3),
+curr_to varchar2(3),
+intg_id varchar2(10),
+exch_RATE NUMBER,
+eff_st_date date,
+eff_end_date date,
+curr_rec_flg varchar2(1)
+);
+--------------------------------------------------
+insert into xx_rates_src values ('USD','USD',1);
+insert into xx_rates_src values ('USD','AED',3.67);
+insert into xx_rates_src values ('USD','CAD',1.37);
+insert into xx_rates_src values ('USD','INR',83.26);
+insert into xx_rates_src values ('USD','NZD',1.67);
+commit;
+--------------------------------------------------
+--truncate table xx_rates_src;
+SELECT * FROM xx_rates_src;
+select * from xx_rates_tgt;
+--create sequence xx_rates_seq;
+
+--------------------------------------------------
+insert into xx_rates_tgt 
+select
+xx_rates_seq.nextval,
+curr_from,
+curr_to,
+curr_from||'~'||curr_to,
+rate,
+trunc(sysdate)-1,
+to_date('99991231','YYYYMMDD'),
+'Y'
+from
+xx_rates_src;
+--------------------------------------------------
+SELECT * FROM xx_rates_src;
+SELECT * FROM xx_rates_tgt;
+
+update xx_rates_src set RATE=83.3 where CURR_TO = 'INR';
+update xx_rates_src set RATE=1.68 where CURR_TO = 'NZD';
+
+--Test 2:
+update xx_rates_src set RATE=3.65 where CURR_TO = 'AED';
+update xx_rates_src set RATE=1.65 where CURR_TO = 'NZD';
+insert into xx_rates_src values ('USD','ZAR',18.35);
+
+--Test 3:
+update xx_rates_src set RATE=18.45 where CURR_TO = 'ZAR';
+--------------------------------------------------
+Merge
+Insert when not matched
+Ignore when matched
+;
+
+MERGE  
+INTO    xx_rates_tgt t
+USING   xx_rates_src s
+ON      (
+                t.curr_from = s.curr_from
+        AND     t.curr_to = s.curr_to
+        AND     t.CURR_REC_FLG = 'Y'
+        AND     t.exch_rate between (0.98*s.rate) AND (1.02*s.rate)
+        --AND     t.exch_rate = s.rate
+        )
+WHEN NOT MATCHED THEN
+INSERT  (EXCH_RATE_ID
+       , curr_from
+       , curr_to
+       , intg_id
+       , exch_rate
+       , eff_st_date
+       , eff_end_date
+       , curr_rec_flg)
+VALUES  (xx_rates_seq.nextval
+       , s.curr_from
+       , s.curr_to
+       , s.curr_from || '~' || s.curr_to
+       , s.rate
+       , trunc (sysdate)-5
+       , to_date ('9999-12-31', 'YYYY-MM-DD')
+       , 'Y');
+
+select * from xx_rates_tgt
+ORDER BY CURR_TO,EFF_ST_DATE;
+--------------------------------------------------
+SELECT  old_exch_rate_id exch_rate_id
+      , intg_id
+      , eff_st_date
+      , CASE WHEN rn = 2 THEN lead ELSE  eff_end_date END eff_end_date
+      , CASE WHEN rn = 2 THEN 'N' ELSE  'Y'  END curr_rec_flg
+FROM    (
+        SELECT  a.*
+              , row_number () OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date DESC)  rn
+              , lead (eff_st_date) OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date)  - 1 lead
+              , first_value (exch_rate_id) OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date)  old_exch_rate_id
+        FROM    xx_rates_tgt a
+        )
+WHERE   rn < 3
+ORDER BY exch_rate_id , eff_st_date;
+
+--------------------------------------------------
+
+MERGE  
+INTO    xx_rates_tgt t
+USING   (
+SELECT old_exch_rate_id exch_rate_id
+      , intg_id
+      , eff_st_date
+      , CASE WHEN rn = 2 THEN lead ELSE  eff_end_date END eff_end_date
+      , CASE WHEN rn = 2 THEN 'N' ELSE  'Y'  END curr_rec_flg
+FROM    (
+        SELECT  a.*
+              , row_number () OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date DESC)  rn
+              , lead (eff_st_date) OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date)  - 1 lead
+              , first_value (exch_rate_id) OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date)  old_exch_rate_id
+        FROM    xx_rates_tgt a
+        )
+WHERE   rn < 3
+) s
+ON      (
+                T.intg_id = s.intg_id
+        AND     t.EFF_ST_DATE = s.EFF_ST_DATE
+        )
+WHEN  MATCHED THEN
+UPDATE SET EXCH_RATE_ID = S.EXCH_RATE_ID,
+           EFF_END_DATE = S.EFF_END_DATE,
+           CURR_REC_FLG = S.CURR_REC_FLG;
+
+select * from xx_rates_tgt
+ORDER BY CURR_TO,EFF_ST_DATE;

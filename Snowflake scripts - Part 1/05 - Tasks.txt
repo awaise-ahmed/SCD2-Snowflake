@@ -1,0 +1,28 @@
+-----------------------------------------------------------------------------
+                            TASKS AND SCHEDULING
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+CREATE OR REPLACE TASK SCD2_INSERT
+WAREHOUSE = COMPUTE_WH
+SCHEDULE = 'USING CRON 15 8 * * * UTC'
+AS
+CALL SCD2_INSERT();
+
+CREATE OR REPLACE TASK SCD2_UPDATE
+WAREHOUSE = COMPUTE_WH
+AFTER SCD2_INSERT
+AS
+CALL SCD2_UPDATE();
+
+alter task SCD2_INSERT resume;
+alter task SCD2_UPDATE resume;
+
+SELECT query_text, completed_time
+FROM snowflake.account_usage.task_history
+LIMIT 10;
+
+select current_timestamp;
+
+ALTER SESSION SET TIMEZONE = 'UTC';
+show tasks;
+-----------------------------------------------------------------------------

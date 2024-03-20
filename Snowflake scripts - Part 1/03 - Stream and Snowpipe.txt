@@ -1,0 +1,34 @@
+-----------------------------------------------------------------------------
+                            SNOWPIPE AND STREAMS
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+create or replace schema DATAFLOW;
+
+CREATE OR REPLACE pipe scd2_DB.DATAFLOW.CURRENCY_PIPE
+auto_ingest = TRUE
+AS
+COPY INTO SCD2_DB.ALL_TABLES.XX_RATES_SRC
+FROM @SCD2_DB.external_stages.csv_input
+pattern='currExch.*txt';
+
+desc pipe scd2_DB.DATAFLOW.CURRENCY_PIPE;
+
+select count(*) from SCD2_DB.ALL_TABLES.XX_RATES_SRC;
+-----------------------------------------------------------------------------
+
+create or replace stream XX_RATES_SRC_STREAM
+on table SCD2_DB.ALL_TABLES.XX_RATES_SRC
+APPEND_ONLY = TRUE;
+
+DESC STREAM XX_RATES_SRC_STREAM;
+SHOW STREAMS;
+
+create or replace temporary table xxxx as
+SELECT * FROM XX_RATES_SRC_STREAM;
+--TRUNCATE TABLE SCD2_DB.ALL_TABLES.XX_RATES_SRC;
+
+show pipes;
+
+drop pipe EMPLOYEE_PIPE;
+-----------------------------------------------------------------------------

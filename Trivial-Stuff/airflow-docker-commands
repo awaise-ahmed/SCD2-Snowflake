@@ -1,0 +1,24 @@
+docker-compose up -d
+localhost:8080
+docker-compose ps
+docker logs materials_name_of_the_container
+docker-compose down
+docker volume prune
+
+airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password admin
+docker exec -it <your-airflow-container-id> airflow dags trigger -e <execution_date> <your-dag-id>
+airflow dags trigger -e 2024-02-06T12:34:56 CurrExchDAG
+
+
+task/dag failure email
+check previous dag run for failure
+Airflow subdag
+
+
+ - Start     - DummyOperator
+ - Check API - HTTPSensor
+ - Lambda    - Call Hook
+ - Check DB  - Snowflake Connection
+ - Copy Job  - Load into Tmp table
+ - Update DB - Run SCD2 procedures
+ - End       - DummyOperator

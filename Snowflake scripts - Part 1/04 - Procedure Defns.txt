@@ -1,0 +1,86 @@
+-----------------------------------------------------------------------------
+                          PROCEDURES DEFINITION
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE SCD2_INSERT()
+  RETURNS varchar NOT NULL
+  LANGUAGE SQL
+AS
+$$
+DECLARE
+  V_RET VARCHAR;
+BEGIN
+  MERGE  
+  INTO    SCD2_DB.ALL_TABLES.xx_rates_tgt t
+  USING   SCD2_DB.DATAFLOW.XX_RATES_SRC_STREAM s
+  ON      (
+                  t.curr_from = s.curr_from
+          AND     t.curr_to = s.curr_to
+          AND     t.CURR_REC_FLG = 'Y'
+          AND     t.exch_rate between (0.97*s.rate) AND (1.03*s.rate)
+          --AND     t.exch_rate = s.rate
+          )
+  WHEN NOT MATCHED THEN
+  INSERT  (EXCH_RATE_ID
+         , curr_from
+         , curr_to
+         , intg_id
+         , exch_rate
+         , eff_st_date
+         , eff_end_date
+         , curr_rec_flg)
+  VALUES  (xx_rates_seq.nextval
+         , s.curr_from
+         , s.curr_to
+         , s.curr_from || '~' || s.curr_to
+         , s.rate
+         , CURRENT_DATE
+         , to_date ('9999-12-31', 'YYYY-MM-DD')
+         , 'Y');
+
+   CREATE OR REPLACE TEMPORARY TABLE SCD2_DB.ALL_TABLES.XX_TMP_SCD AS SELECT * FROM XX_RATES_SRC_STREAM;
+   RETURN 'Success! '||SQLROWCOUNT||' rows inserted.';
+END;
+$$
+;
+-----------------------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE SCD2_UPDATE()
+  RETURNS TEXT
+  LANGUAGE SQL
+  EXECUTE AS CALLER
+AS
+$$
+BEGIN
+  MERGE  
+  INTO    SCD2_DB.ALL_TABLES.xx_rates_tgt t
+  USING   (
+  SELECT old_exch_rate_id exch_rate_id
+        , intg_id
+        , eff_st_date
+        , CASE WHEN rn = 2 THEN lead ELSE  eff_end_date END eff_end_date
+        , CASE WHEN rn = 2 THEN 'N' ELSE  'Y'  END curr_rec_flg
+  FROM    (
+          SELECT  a.*
+                , row_number () OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date DESC)  rn
+                , lead (eff_st_date) OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date)  - 1 lead
+                , first_value (exch_rate_id) OVER (PARTITION BY curr_from, curr_to ORDER BY eff_st_date)  old_exch_rate_id
+          FROM    SCD2_DB.ALL_TABLES.xx_rates_tgt a
+          )
+  WHERE   rn < 3
+  ) s
+  ON      (
+                  T.intg_id = s.intg_id
+          AND     t.EFF_ST_DATE = s.EFF_ST_DATE
+          )
+  WHEN  MATCHED THEN
+  UPDATE SET EXCH_RATE_ID = S.EXCH_RATE_ID,
+             EFF_END_DATE = S.EFF_END_DATE,
+             CURR_REC_FLG = S.CURR_REC_FLG;
+  
+  RETURN 'Success! '||SQLROWCOUNT||' rows updated.';
+END;
+$$
+;
+
+-----------------------------------------------------------------------------
